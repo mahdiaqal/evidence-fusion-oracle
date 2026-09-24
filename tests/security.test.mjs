@@ -15,3 +15,10 @@ test("architecture has versioned snapshots without certificates", () => {
   assert.match(source, /self\.snapshots\[feed_id \+ ":" \+ str\(next_version\)\]/);
   assert.doesNotMatch(source, /certificate|capability|consume|settle/);
 });
+test("VERIFIED requires deterministic answer-vector directional consistency", () => {
+  assert.match(source, /def _snapshot_state\(answer: str, support_vector: list\[str\]\) -> str:/);
+  assert.match(source, /answer == "YES" and all\(value == "SUPPORT" for value in support_vector\)/);
+  assert.match(source, /answer == "NO" and all\(value == "REFUTE" for value in support_vector\)/);
+  assert.match(source, /state = _snapshot_state\(report\["answer"\], report\["support_vector"\]\)/);
+  assert.doesNotMatch(source, /report\["answer"\] in \("YES", "NO"\) and all_known/);
+});

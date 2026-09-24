@@ -29,6 +29,21 @@ def _host(url: str) -> str:
     return (host if colon < 0 else host[:colon]).lower()
 
 
+def _snapshot_state(answer: str, support_vector: list[str]) -> str:
+    """Derive state from the complete answer/vector pair; contradictions fail closed."""
+    if not support_vector or "UNKNOWN" in support_vector or answer == "UNKNOWN":
+        return UNKNOWN
+    has_support = "SUPPORT" in support_vector
+    has_refute = "REFUTE" in support_vector
+    if has_support and has_refute:
+        return CONFLICTED
+    if answer == "YES" and all(value == "SUPPORT" for value in support_vector):
+        return VERIFIED
+    if answer == "NO" and all(value == "REFUTE" for value in support_vector):
+        return VERIFIED
+    return UNKNOWN
+
+
 @allow_storage
 @dataclass
 class Feed:
@@ -152,15 +167,7 @@ class EvidenceFusionOracle(gl.Contract):
                     leader.calldata.get("authorities") == independent["authorities"])
 
         report = gl.vm.run_nondet_unsafe(acquire, validate)
-        has_support = "SUPPORT" in report["support_vector"]
-        has_refute = "REFUTE" in report["support_vector"]
-        all_known = "UNKNOWN" not in report["support_vector"]
-        if has_support and has_refute:
-            state = CONFLICTED
-        elif report["answer"] in ("YES", "NO") and all_known:
-            state = VERIFIED
-        else:
-            state = UNKNOWN
+        state = _snapshot_state(report["answer"], report["support_vector"])
         next_version = int(feed.version) + 1
         packet = {"feed_id": feed_id, "version": next_version, "question": feed.question,
                   "evaluation_rule": feed.evaluation_rule, "report": report, "state": state}
